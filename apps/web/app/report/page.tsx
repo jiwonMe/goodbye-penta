@@ -246,7 +246,7 @@ export default function ReportPage() {
                           <X className="h-4 w-4" />
                         </button>
                         <div className="mt-1 text-xs text-muted-foreground truncate">
-                          {selectedFiles[index].name}
+                          {selectedFiles[index]?.name || '알 수 없는 파일'}
                         </div>
                       </div>
                     ))}
