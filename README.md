@@ -1,135 +1,139 @@
-# Turborepo starter
+# IPRF 2025 제보 플랫폼
 
-This Turborepo starter is maintained by the Turborepo core team.
+인천펜타포트락페스티벌 2025에서 발생한 운영 실패와 관객 불편 사례를 수집하는 제보 플랫폼입니다.
 
-## Using this example
+## 기능
 
-Run the following command:
+- ✅ 제보 작성 및 관리
+- ✅ 타임라인 기반 제보 목록
+- ✅ 카테고리별 필터링
+- ✅ 댓글 시스템 (upvote/downvote 포함)
+- ✅ 이미지 업로드
+- ✅ 관리자 페이지
+- ✅ 반응형 디자인 (다크 테마)
 
-```sh
-npx create-turbo@latest
+## 기술 스택
+
+- **Frontend**: Next.js 15, React, TypeScript
+- **Styling**: Tailwind CSS, shadcn/ui
+- **Database**: Vercel KV (프로덕션), 메모리 스토리지 (개발)
+- **Deployment**: Vercel
+- **Monorepo**: Turborepo
+
+## 개발 환경 설정
+
+### 1. 저장소 클론
+
+```bash
+git clone <repository-url>
+cd goodbye-penta
 ```
 
-## What's inside?
+### 2. 의존성 설치
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+```bash
+pnpm install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+### 3. 개발 서버 실행
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+pnpm dev
 ```
 
-### Develop
+앱이 http://localhost:3000에서 실행됩니다.
 
-To develop all apps and packages, run the following command:
+## Vercel 배포
 
-```
-cd my-turborepo
+### 1. Vercel 계정 설정
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
+1. [Vercel](https://vercel.com)에 계정 생성
+2. GitHub 저장소 연결
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
-```
+### 2. Vercel KV 데이터베이스 생성
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+1. Vercel 대시보드 → Storage → Create Database
+2. "KV" 선택
+3. 데이터베이스 생성 후 연결 정보 확인
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+### 3. 환경 변수 설정
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+Vercel 프로젝트 설정에서 다음 환경 변수를 설정하세요:
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+KV_REST_API_URL=your_kv_rest_api_url
+KV_REST_API_TOKEN=your_kv_rest_api_token
+ADMIN_PASSWORD=your_secure_admin_password
+NEXT_PUBLIC_APP_URL=https://your-app-domain.vercel.app
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+### 4. 배포 설정
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+프로젝트 루트에 있는 `vercel.json` 파일이 자동으로 배포를 구성합니다.
+
+### 5. 배포 실행
+
+```bash
+# Vercel CLI 설치 (선택사항)
+npm i -g vercel
+
+# 배포
+vercel --prod
+```
+
+또는 GitHub에 푸시하면 자동으로 배포됩니다.
+
+## 프로젝트 구조
 
 ```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+goodbye-penta/
+├── apps/
+│   ├── web/                 # Next.js 앱
+│   │   ├── app/            # App Router
+│   │   ├── components/     # UI 컴포넌트
+│   │   ├── lib/           # 유틸리티 및 DB
+│   │   └── types/         # TypeScript 타입
+│   └── docs/              # 문서 (사용 안 함)
+├── packages/              # 공유 패키지
+└── vercel.json           # Vercel 배포 설정
 ```
 
-## Useful Links
+## 주요 페이지
 
-Learn more about the power of Turborepo:
+- `/` - 홈페이지
+- `/report` - 제보 작성
+- `/timeline` - 제보 타임라인
+- `/report/[id]` - 제보 상세
+- `/admin` - 관리자 페이지 (비밀번호: 환경변수 설정)
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+## 관리자 기능
+
+1. 푸터의 점(.) 클릭 또는 `/admin` 직접 접근
+2. 관리자 비밀번호 입력
+3. 제보 및 댓글 관리, 통계 확인
+
+## 개발 참고사항
+
+### 데이터베이스
+
+- **개발**: 메모리 스토리지 (서버 재시작 시 초기화)
+- **프로덕션**: Vercel KV (영구 저장)
+
+### 이미지 처리
+
+- 클라이언트에서 base64로 인코딩
+- 메모리/KV에 저장
+- 프로덕션에서는 별도 이미지 스토리지 권장
+
+### 보안
+
+- 관리자 인증은 간단한 비밀번호 방식
+- 프로덕션에서는 더 강력한 인증 시스템 권장
+
+## 라이센스
+
+이 프로젝트는 공익 제보를 위한 비영리 목적으로 제작되었습니다.
+
+## 기여
+
+버그 리포트나 기능 제안은 GitHub Issues를 통해 제출해주세요.
