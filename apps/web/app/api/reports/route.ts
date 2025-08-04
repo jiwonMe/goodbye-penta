@@ -63,8 +63,7 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to create report';
     console.error('Detailed error:', {
       message: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined,
-      input: body
+      stack: error instanceof Error ? error.stack : undefined
     });
     
     return NextResponse.json(
