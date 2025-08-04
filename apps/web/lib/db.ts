@@ -1,12 +1,12 @@
 import { nanoid } from 'nanoid';
 import { Report, CreateReportInput } from '@/types/report';
 import { Comment, CreateCommentInput } from '@/types/comment';
-import { put, list, head } from '@vercel/blob';
+import { put } from '@vercel/blob';
+import { Category } from '@/types/report';
 
 // Blob 스토리지 설정
 const BLOB_ENABLED = !!process.env.BLOB_READ_WRITE_TOKEN || !!process.env.PENTA_READ_WRITE_TOKEN;
 const REPORTS_BLOB_KEY = 'reports-data.json';
-const COMMENTS_BLOB_KEY = 'comments-data.json';
 
 if (BLOB_ENABLED) {
   console.log('✅ Vercel Blob storage enabled');
@@ -29,7 +29,7 @@ function initializeDummyData() {
       {
         id: 'sample-1',
         title: '입장 대기 시간 3시간 지연',
-        category: 'OPERATION_FAILURE' as const,
+        category: Category.OPERATION_FAILURE,
         content: '오후 1시부터 입장 예정이었으나 실제 입장은 오후 4시에 시작되었습니다. 더위 속에서 대기하는 동안 충분한 안내나 생수 제공이 없었습니다.',
         occurredAt: new Date('2025-08-01T13:00:00'),
         createdAt: new Date('2025-08-01T16:30:00'),
@@ -43,7 +43,7 @@ function initializeDummyData() {
       {
         id: 'sample-2', 
         title: '화장실 부족 및 위생 상태 불량',
-        category: 'FACILITY' as const,
+        category: Category.FACILITY,
         content: '행사장 내 화장실이 턱없이 부족했고, 기존 화장실도 청소가 제대로 되지 않아 이용하기 어려운 상태였습니다.',
         occurredAt: new Date('2025-08-02T14:00:00'),
         createdAt: new Date('2025-08-02T18:00:00'),
@@ -57,7 +57,7 @@ function initializeDummyData() {
       {
         id: 'sample-3',
         title: '셔틀버스 운행 중단',
-        category: 'TRANSPORTATION' as const,
+        category: Category.TRANSPORTATION,
         content: '마지막 날 새벽 2시경 갑작스럽게 셔틀버스 운행이 중단되어 많은 관객들이 발을 걸이게 되었습니다. 사전 공지도 없었습니다.',
         occurredAt: new Date('2025-08-03T02:00:00'),
         createdAt: new Date('2025-08-03T09:00:00'),
@@ -71,7 +71,7 @@ function initializeDummyData() {
     ];
 
     dummyReports.forEach(report => {
-      reportsStore.set(report.id, report as Report);
+      reportsStore.set(report.id, report);
       reportsList.unshift(report.id);
     });
     
@@ -97,7 +97,7 @@ async function loadReportsFromBlob(): Promise<{ reports: Map<string, Report>; re
       const reports = new Map<string, Report>();
       
       // Date 객체 복원
-      data.reports.forEach((report: any) => {
+      data.reports.forEach((report: Report) => {
         reports.set(report.id, {
           ...report,
           createdAt: new Date(report.createdAt),
