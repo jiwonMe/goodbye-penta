@@ -34,10 +34,10 @@ export default function ReportPage() {
       return;
     }
     
-    // 파일 크기 검증 (5MB)
+    // 파일 크기 검증 (10MB)
     const validFiles = files.filter(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name}: 파일 크기는 5MB 이하여야 합니다.`);
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`${file.name}: 파일 크기는 10MB 이하여야 합니다.`);
         return false;
       }
       return true;
@@ -66,22 +66,25 @@ export default function ReportPage() {
     setIsSubmitting(true);
 
     try {
-      // 이미지 업로드를 위한 FormData
-      const formDataToSend = new FormData();
-      selectedFiles.forEach((file, index) => {
-        formDataToSend.append('images', file);
-      });
-      
-      // 여기서는 실제 이미지 업로드를 구현하지 않고,
-      // base64로 변환하여 메모리에 저장합니다.
+      // 이미지를 Vercel Blob에 업로드
       const imageUrls: string[] = [];
+      
       for (const file of selectedFiles) {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve) => {
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(file);
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
         });
-        imageUrls.push(base64);
+        
+        const uploadResult = await uploadResponse.json();
+        
+        if (uploadResult.success) {
+          imageUrls.push(uploadResult.data.url);
+        } else {
+          throw new Error(uploadResult.error || '이미지 업로드 실패');
+        }
       }
       
       const response = await fetch('/api/reports', {
@@ -207,7 +210,7 @@ export default function ReportPage() {
                       <p className="mb-2 text-sm text-muted-foreground">
                         <span className="font-semibold">클릭하여 업로드</span> 또는 드래그 앤 드롭
                       </p>
-                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF (5MB 이하)</p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, GIF (10MB 이하)</p>
                     </div>
                     <input
                       id="file-upload"
