@@ -1,21 +1,17 @@
 import { nanoid } from 'nanoid';
 import { Report, CreateReportInput } from '@/types/report';
 import { Comment, CreateCommentInput } from '@/types/comment';
+import { put, list, head } from '@vercel/blob';
 
-// KV 데이터베이스 설정
-let redis: any = null;
+// Blob 스토리지 설정
+const BLOB_ENABLED = !!process.env.BLOB_READ_WRITE_TOKEN || !!process.env.PENTA_READ_WRITE_TOKEN;
+const REPORTS_BLOB_KEY = 'reports-data.json';
+const COMMENTS_BLOB_KEY = 'comments-data.json';
 
-// Vercel KV (Upstash Redis) 설정 (프로덕션용)
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-  try {
-    const { Redis } = require('@upstash/redis');
-    redis = Redis.fromEnv();
-    console.log('✅ Vercel KV connected successfully');
-  } catch (error) {
-    console.warn('⚠️ Vercel KV not available, using memory storage:', error);
-  }
+if (BLOB_ENABLED) {
+  console.log('✅ Vercel Blob storage enabled');
 } else {
-  console.log('📝 Using memory storage (KV environment variables not found)');
+  console.log('📝 Using memory storage (Blob token not found)');
 }
 
 // 메모리 스토리지 (개발용/폴백용)
@@ -24,8 +20,157 @@ const reportsList: string[] = [];
 const commentsStore = new Map<string, Comment>();
 const reportComments = new Map<string, string[]>(); // reportId -> commentIds[]
 
+// 더미 데이터 초기화 (메모리 스토리지용)
+function initializeDummyData() {
+  if (reportsStore.size === 0) {
+    console.log('🔄 더미 데이터 초기화 중...');
+    
+    const dummyReports = [
+      {
+        id: 'sample-1',
+        title: '입장 대기 시간 3시간 지연',
+        category: 'OPERATION_FAILURE' as const,
+        content: '오후 1시부터 입장 예정이었으나 실제 입장은 오후 4시에 시작되었습니다. 더위 속에서 대기하는 동안 충분한 안내나 생수 제공이 없었습니다.',
+        occurredAt: new Date('2025-08-01T13:00:00'),
+        createdAt: new Date('2025-08-01T16:30:00'),
+        updatedAt: new Date('2025-08-01T16:30:00'),
+        supportCount: 12,
+        viewCount: 45,
+        upvotes: 8,
+        downvotes: 1,
+        reporter: { nickname: '음악팬123' }
+      },
+      {
+        id: 'sample-2', 
+        title: '화장실 부족 및 위생 상태 불량',
+        category: 'FACILITY' as const,
+        content: '행사장 내 화장실이 턱없이 부족했고, 기존 화장실도 청소가 제대로 되지 않아 이용하기 어려운 상태였습니다.',
+        occurredAt: new Date('2025-08-02T14:00:00'),
+        createdAt: new Date('2025-08-02T18:00:00'),
+        updatedAt: new Date('2025-08-02T18:00:00'),
+        supportCount: 23,
+        viewCount: 67,
+        upvotes: 19,
+        downvotes: 2,
+        reporter: { nickname: '페스티벌러버' }
+      },
+      {
+        id: 'sample-3',
+        title: '셔틀버스 운행 중단',
+        category: 'TRANSPORTATION' as const,
+        content: '마지막 날 새벽 2시경 갑작스럽게 셔틀버스 운행이 중단되어 많은 관객들이 발을 걸이게 되었습니다. 사전 공지도 없었습니다.',
+        occurredAt: new Date('2025-08-03T02:00:00'),
+        createdAt: new Date('2025-08-03T09:00:00'),
+        updatedAt: new Date('2025-08-03T09:00:00'),
+        supportCount: 34,
+        viewCount: 89,
+        upvotes: 28,
+        downvotes: 3,
+        reporter: { nickname: '심야관객' }
+      }
+    ];
+
+    dummyReports.forEach(report => {
+      reportsStore.set(report.id, report as Report);
+      reportsList.unshift(report.id);
+    });
+    
+    console.log('✅ 더미 데이터 초기화 완료:', reportsStore.size, '개 제보');
+  }
+}
+
+// Blob 스토리지 헬퍼 함수들
+async function loadReportsFromBlob(): Promise<{ reports: Map<string, Report>; reportsList: string[] }> {
+  if (!BLOB_ENABLED) {
+    return { reports: new Map(), reportsList: [] };
+  }
+
+  try {
+    const response = await fetch(`https://blob.vercel-storage.com/${REPORTS_BLOB_KEY}`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.BLOB_READ_WRITE_TOKEN || process.env.PENTA_READ_WRITE_TOKEN}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const reports = new Map<string, Report>();
+      
+      // Date 객체 복원
+      data.reports.forEach((report: any) => {
+        reports.set(report.id, {
+          ...report,
+          createdAt: new Date(report.createdAt),
+          updatedAt: new Date(report.updatedAt),
+          occurredAt: new Date(report.occurredAt)
+        });
+      });
+      
+      console.log('✅ Blob에서 제보 데이터 로드 완료:', data.reports.length, '개');
+      return { reports, reportsList: data.reportsList || [] };
+    }
+  } catch (error) {
+    console.warn('⚠️ Blob에서 데이터 로드 실패:', error);
+  }
+  
+  return { reports: new Map(), reportsList: [] };
+}
+
+async function saveReportsToBlob(reports: Map<string, Report>, reportsList: string[]): Promise<void> {
+  if (!BLOB_ENABLED) return;
+
+  try {
+    const data = {
+      reports: Array.from(reports.values()),
+      reportsList: reportsList,
+      lastUpdated: new Date().toISOString()
+    };
+
+    await put(REPORTS_BLOB_KEY, JSON.stringify(data), {
+      access: 'public',
+    });
+    
+    console.log('✅ Blob에 제보 데이터 저장 완료');
+  } catch (error) {
+    console.warn('⚠️ Blob 저장 실패:', error);
+  }
+}
+
+// 데이터 초기화
+let dataInitialized = false;
+async function initializeData() {
+  if (dataInitialized) return;
+  
+  if (BLOB_ENABLED) {
+    console.log('🔄 Blob에서 데이터 로드 중...');
+    const { reports, reportsList: loadedList } = await loadReportsFromBlob();
+    
+    if (reports.size > 0) {
+      // Blob에서 로드한 데이터로 메모리 스토리지 초기화
+      reports.forEach((report, id) => {
+        reportsStore.set(id, report);
+      });
+      reportsList.splice(0, reportsList.length, ...loadedList);
+      console.log('✅ Blob 데이터로 초기화 완료:', reports.size, '개 제보');
+    } else {
+      // Blob에 데이터가 없으면 더미 데이터로 초기화
+      console.log('🔄 더미 데이터로 초기화 중...');
+      initializeDummyData();
+      await saveReportsToBlob(reportsStore, reportsList);
+    }
+  } else {
+    // Blob을 사용할 수 없으면 더미 데이터만 사용
+    initializeDummyData();
+  }
+  
+  dataInitialized = true;
+}
+
 export async function createReport(input: CreateReportInput): Promise<Report> {
   try {
+    // 데이터 초기화
+    await initializeData();
+    
     console.log('🔄 Creating report with input:', { ...input, images: input.images ? `${input.images.length} images` : 'no images' });
     
     const id = nanoid();
@@ -42,28 +187,21 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
       downvotes: 0,
     };
 
-    if (redis) {
+    // 메모리 스토리지에 저장
+    reportsStore.set(id, report);
+    reportsList.unshift(id);
+    
+    // Blob에 저장 (비동기)
+    if (BLOB_ENABLED) {
+      console.log('💾 Saving to Vercel Blob...');
       try {
-        console.log('💾 Saving to Vercel KV...');
-        // Vercel KV에 저장
-        await redis.hset(`report:${id}`, report);
-        await redis.lpush('reports:list', id);
-        console.log('✅ Saved to Vercel KV successfully');
-      } catch (kvError) {
-        console.warn('⚠️ KV 저장 실패, 메모리 스토리지로 대체:', kvError);
-        // KV 저장 실패시 메모리 스토리지로 대체
-        reportsStore.set(id, report);
-        reportsList.unshift(id);
-        console.log('✅ Saved to memory storage as fallback');
-        // Redis 연결 비활성화
-        redis = null;
+        await saveReportsToBlob(reportsStore, reportsList);
+        console.log('✅ Saved to Vercel Blob successfully');
+      } catch (blobError) {
+        console.warn('⚠️ Blob 저장 실패:', blobError);
       }
     } else {
-      console.log('💾 Saving to memory storage...');
-      // 메모리 스토리지에 저장
-      reportsStore.set(id, report);
-      reportsList.unshift(id);
-      console.log('✅ Saved to memory storage successfully');
+      console.log('💾 Saved to memory storage only');
     }
     
     console.log('🎉 Report created successfully:', id);
@@ -75,44 +213,19 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
 }
 
 export async function getReport(id: string): Promise<Report | null> {
-  let report: Report | null = null;
+  // 데이터 초기화
+  await initializeData();
   
-  if (redis) {
-    try {
-      // Vercel KV에서 가져오기
-      report = await redis.hgetall(`report:${id}`);
-      if (report && Object.keys(report).length > 0) {
-        // 날짜 문자열을 Date 객체로 변환
-        report.createdAt = new Date(report.createdAt);
-        report.updatedAt = new Date(report.updatedAt);
-        report.occurredAt = new Date(report.occurredAt);
-        
-        // 조회수 증가
-        report.viewCount = (report.viewCount || 0) + 1;
-        try {
-          await redis.hset(`report:${id}`, { viewCount: report.viewCount });
-        } catch (updateError) {
-          console.warn('⚠️ KV 조회수 업데이트 실패:', updateError);
-        }
-      } else {
-        report = null;
-      }
-    } catch (kvError) {
-      console.warn(`⚠️ KV에서 리포트 ${id} 조회 실패, 메모리 스토리지로 대체:`, kvError);
-      report = reportsStore.get(id) || null;
-      if (report) {
-        report.viewCount++;
-        reportsStore.set(id, report);
-      }
-      // Redis 연결 비활성화
-      redis = null;
-    }
-  } else {
-    // 메모리 스토리지에서 가져오기
-    report = reportsStore.get(id) || null;
-    if (report) {
-      report.viewCount++;
-      reportsStore.set(id, report);
+  const report = reportsStore.get(id) || null;
+  if (report) {
+    report.viewCount++;
+    reportsStore.set(id, report);
+    
+    // Blob에 업데이트된 데이터 저장 (비동기, 오류 무시)
+    if (BLOB_ENABLED) {
+      saveReportsToBlob(reportsStore, reportsList).catch(error => {
+        console.warn('⚠️ 조회수 업데이트 Blob 저장 실패:', error);
+      });
     }
   }
   
@@ -123,55 +236,19 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
   reports: Report[];
   total: number;
 }> {
+  // 데이터 초기화
+  await initializeData();
+  
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   
-  let pageReportIds: string[] = [];
-  let total = 0;
-  
-  if (redis) {
-    try {
-      // Vercel KV에서 가져오기
-      const allIds = await redis.lrange('reports:list', 0, -1);
-      total = allIds.length;
-      pageReportIds = allIds.slice(start, end);
-    } catch (kvError) {
-      console.warn('⚠️ KV 조회 실패, 메모리 스토리지로 대체:', kvError);
-      // KV 조회 실패시 메모리 스토리지로 대체
-      total = reportsList.length;
-      pageReportIds = reportsList.slice(start, end);
-      // Redis 연결 비활성화
-      redis = null;
-    }
-  } else {
-    // 메모리 스토리지에서 가져오기
-    total = reportsList.length;
-    pageReportIds = reportsList.slice(start, end);
-  }
+  // 메모리 스토리지에서 가져오기
+  const total = reportsList.length;
+  const pageReportIds = reportsList.slice(start, end);
   
   // 각 제보 데이터 가져오기 (댓글 수 포함)
   const reportPromises = pageReportIds.map(async (id) => {
-    let report: Report | null = null;
-    
-    if (redis) {
-      try {
-        report = await redis.hgetall(`report:${id}`);
-        if (report && Object.keys(report).length > 0) {
-          // 날짜 문자열을 Date 객체로 변환
-          report.createdAt = new Date(report.createdAt);
-          report.updatedAt = new Date(report.updatedAt);
-          report.occurredAt = new Date(report.occurredAt);
-        } else {
-          report = null;
-        }
-      } catch (kvError) {
-        console.warn(`⚠️ KV에서 리포트 ${id} 조회 실패, 메모리 스토리지로 대체:`, kvError);
-        report = reportsStore.get(id) || null;
-      }
-    } else {
-      report = reportsStore.get(id) || null;
-    }
-    
+    const report = reportsStore.get(id);
     if (!report) return null;
     
     const commentCount = await getCommentCount(id);
