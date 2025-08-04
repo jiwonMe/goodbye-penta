@@ -3,14 +3,15 @@ import { supportReport, unsupportReport } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { support } = await request.json();
     
     const newCount = support 
-      ? await supportReport(params.id)
-      : await unsupportReport(params.id);
+      ? await supportReport(id)
+      : await unsupportReport(id);
     
     return NextResponse.json({
       success: true,

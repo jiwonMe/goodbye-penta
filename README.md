@@ -52,20 +52,24 @@ pnpm dev
 
 ### 2. Vercel KV 데이터베이스 생성
 
-1. Vercel 대시보드 → Storage → Create Database
-2. "KV" 선택
-3. 데이터베이스 생성 후 연결 정보 확인
+1. Vercel 대시보드에서 프로젝트 선택
+2. **Storage** 탭으로 이동
+3. **Browse Marketplace** 클릭
+4. **KV (Redis)** 선택 후 설치
+5. 데이터베이스 생성 완료 후 KV 환경 변수가 자동으로 추가됨
 
-### 3. 환경 변수 설정
+**참고**: [Vercel Storage 공식 문서](https://vercel.com/docs/storage)
 
-Vercel 프로젝트 설정에서 다음 환경 변수를 설정하세요:
+### 3. 추가 환경 변수 설정
+
+Vercel KV 설치 시 KV 환경 변수는 자동으로 추가됩니다. 추가로 다음 환경 변수를 설정하세요:
 
 ```
-KV_REST_API_URL=your_kv_rest_api_url
-KV_REST_API_TOKEN=your_kv_rest_api_token
 ADMIN_PASSWORD=your_secure_admin_password
 NEXT_PUBLIC_APP_URL=https://your-app-domain.vercel.app
 ```
+
+**주의**: `KV_REST_API_URL`과 `KV_REST_API_TOKEN`은 Vercel KV Marketplace 설치 시 자동으로 추가됩니다.
 
 ### 4. 배포 설정
 

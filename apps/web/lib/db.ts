@@ -3,16 +3,13 @@ import { Report, CreateReportInput } from '@/types/report';
 import { Comment, CreateCommentInput } from '@/types/comment';
 
 // KV 데이터베이스 설정
-let kv: any = null;
+let redis: any = null;
 
-// Vercel KV 설정 (프로덕션용)
+// Vercel KV (Upstash Redis) 설정 (프로덕션용)
 if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
   try {
-    const { createClient } = require('@vercel/kv');
-    kv = createClient({
-      url: process.env.KV_REST_API_URL,
-      token: process.env.KV_REST_API_TOKEN,
-    });
+    const { Redis } = require('@upstash/redis');
+    redis = Redis.fromEnv();
   } catch (error) {
     console.warn('Vercel KV not available, using memory storage');
   }
@@ -39,10 +36,10 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
     downvotes: 0,
   };
 
-  if (kv) {
+  if (redis) {
     // Vercel KV에 저장
-    await kv.hset(`report:${id}`, report);
-    await kv.lpush('reports:list', id);
+    await redis.hset(`report:${id}`, report);
+    await redis.lpush('reports:list', id);
   } else {
     // 메모리 스토리지에 저장
     reportsStore.set(id, report);
@@ -55,9 +52,9 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
 export async function getReport(id: string): Promise<Report | null> {
   let report: Report | null = null;
   
-  if (kv) {
+  if (redis) {
     // Vercel KV에서 가져오기
-    report = await kv.hgetall(`report:${id}`);
+    report = await redis.hgetall(`report:${id}`);
     if (report && Object.keys(report).length > 0) {
       // 날짜 문자열을 Date 객체로 변환
       report.createdAt = new Date(report.createdAt);
@@ -66,7 +63,7 @@ export async function getReport(id: string): Promise<Report | null> {
       
       // 조회수 증가
       report.viewCount = (report.viewCount || 0) + 1;
-      await kv.hset(`report:${id}`, { viewCount: report.viewCount });
+      await redis.hset(`report:${id}`, { viewCount: report.viewCount });
     } else {
       report = null;
     }
@@ -92,9 +89,9 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
   let pageReportIds: string[] = [];
   let total = 0;
   
-  if (kv) {
+  if (redis) {
     // Vercel KV에서 가져오기
-    const allIds = await kv.lrange('reports:list', 0, -1);
+    const allIds = await redis.lrange('reports:list', 0, -1);
     total = allIds.length;
     pageReportIds = allIds.slice(start, end);
   } else {
@@ -109,8 +106,8 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
       .map(async (id) => {
         let report: Report | null = null;
         
-        if (kv) {
-          report = await kv.hgetall(`report:${id}`);
+        if (redis) {
+          report = await redis.hgetall(`report:${id}`);
           if (report && Object.keys(report).length > 0) {
             // 날짜 문자열을 Date 객체로 변환
             report.createdAt = new Date(report.createdAt);
