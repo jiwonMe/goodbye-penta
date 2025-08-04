@@ -46,8 +46,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
+    
+    // 더 상세한 오류 정보 제공
+    const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+    console.error('Detailed upload error:', {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      env: {
+        BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN ? 'Present' : 'Missing'
+      }
+    });
+    
     return NextResponse.json(
-      { success: false, error: 'Upload failed' },
+      { 
+        success: false, 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : String(error) : undefined
+      },
       { status: 500 }
     );
   }

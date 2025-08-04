@@ -10,9 +10,12 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
   try {
     const { Redis } = require('@upstash/redis');
     redis = Redis.fromEnv();
+    console.log('✅ Vercel KV connected successfully');
   } catch (error) {
-    console.warn('Vercel KV not available, using memory storage');
+    console.warn('⚠️ Vercel KV not available, using memory storage:', error);
   }
+} else {
+  console.log('📝 Using memory storage (KV environment variables not found)');
 }
 
 // 메모리 스토리지 (개발용/폴백용)
@@ -22,31 +25,43 @@ const commentsStore = new Map<string, Comment>();
 const reportComments = new Map<string, string[]>(); // reportId -> commentIds[]
 
 export async function createReport(input: CreateReportInput): Promise<Report> {
-  const id = nanoid();
-  const now = new Date();
-  
-  const report: Report = {
-    id,
-    ...input,
-    createdAt: now,
-    updatedAt: now,
-    supportCount: 0,
-    viewCount: 0,
-    upvotes: 0,
-    downvotes: 0,
-  };
+  try {
+    console.log('🔄 Creating report with input:', { ...input, images: input.images ? `${input.images.length} images` : 'no images' });
+    
+    const id = nanoid();
+    const now = new Date();
+    
+    const report: Report = {
+      id,
+      ...input,
+      createdAt: now,
+      updatedAt: now,
+      supportCount: 0,
+      viewCount: 0,
+      upvotes: 0,
+      downvotes: 0,
+    };
 
-  if (redis) {
-    // Vercel KV에 저장
-    await redis.hset(`report:${id}`, report);
-    await redis.lpush('reports:list', id);
-  } else {
-    // 메모리 스토리지에 저장
-    reportsStore.set(id, report);
-    reportsList.unshift(id);
+    if (redis) {
+      console.log('💾 Saving to Vercel KV...');
+      // Vercel KV에 저장
+      await redis.hset(`report:${id}`, report);
+      await redis.lpush('reports:list', id);
+      console.log('✅ Saved to Vercel KV successfully');
+    } else {
+      console.log('💾 Saving to memory storage...');
+      // 메모리 스토리지에 저장
+      reportsStore.set(id, report);
+      reportsList.unshift(id);
+      console.log('✅ Saved to memory storage successfully');
+    }
+    
+    console.log('🎉 Report created successfully:', id);
+    return report;
+  } catch (error) {
+    console.error('❌ Error in createReport:', error);
+    throw error;
   }
-  
-  return report;
 }
 
 export async function getReport(id: string): Promise<Report | null> {

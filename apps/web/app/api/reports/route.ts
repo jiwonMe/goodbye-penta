@@ -58,8 +58,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error creating report:', error);
+    
+    // 더 상세한 오류 정보 제공
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create report';
+    console.error('Detailed error:', {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      input: body
+    });
+    
     return NextResponse.json(
-      { success: false, error: 'Failed to create report' },
+      { 
+        success: false, 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : String(error) : undefined
+      },
       { status: 500 }
     );
   }

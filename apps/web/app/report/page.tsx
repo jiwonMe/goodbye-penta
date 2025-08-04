@@ -69,24 +69,43 @@ export default function ReportPage() {
     setIsSubmitting(true);
 
     try {
-      // 이미지를 Vercel Blob에 업로드
+      // 이미지를 Vercel Blob에 업로드 (실패시 base64로 대체)
       const imageUrls: string[] = [];
       
       for (const file of selectedFiles) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        const uploadResult = await uploadResponse.json();
-        
-        if (uploadResult.success) {
-          imageUrls.push(uploadResult.data.url);
-        } else {
-          throw new Error(uploadResult.error || '이미지 업로드 실패');
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          const uploadResult = await uploadResponse.json();
+          
+          if (uploadResult.success) {
+            imageUrls.push(uploadResult.data.url);
+            console.log('✅ 이미지 업로드 성공:', uploadResult.data.url);
+          } else {
+            console.warn('⚠️ Blob 업로드 실패, base64로 대체:', uploadResult.error);
+            // base64로 대체
+            const reader = new FileReader();
+            const base64 = await new Promise<string>((resolve) => {
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(file);
+            });
+            imageUrls.push(base64);
+          }
+        } catch (uploadError) {
+          console.warn('⚠️ 이미지 업로드 오류, base64로 대체:', uploadError);
+          // base64로 대체
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.readAsDataURL(file);
+          });
+          imageUrls.push(base64);
         }
       }
       
@@ -114,11 +133,19 @@ export default function ReportPage() {
         alert('제보가 성공적으로 접수되었습니다.');
         router.push('/timeline');
       } else {
+        console.error('제보 제출 실패 - 서버 응답:', result);
         throw new Error(result.error || '제보 제출 실패');
       }
     } catch (error) {
       console.error('제보 제출 오류:', error);
-      alert('제보 제출 중 오류가 발생했습니다.');
+      
+      // 더 상세한 오류 메시지 제공
+      let errorMessage = '제보 제출 중 오류가 발생했습니다.';
+      if (error instanceof Error) {
+        errorMessage += `\n오류 내용: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
