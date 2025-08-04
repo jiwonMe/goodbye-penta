@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
       message: errorMessage,
       stack: error instanceof Error ? error.stack : undefined,
       env: {
-        BLOB_READ_WRITE_TOKEN: process.env.BLOB_READ_WRITE_TOKEN ? 'Present' : 'Missing'
+        PENTA_READ_WRITE_TOKEN: process.env.PENTA_READ_WRITE_TOKEN ? 'Present' : 'Missing'
       }
     });
     

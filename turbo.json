@@ -11,9 +11,10 @@
         "KV_REST_API_TOKEN",
         "KV_REST_API_READ_ONLY_TOKEN",
         "KV_URL",
-        "BLOB_READ_WRITE_TOKEN",
+        "PENTA_READ_WRITE_TOKEN",
         "ADMIN_PASSWORD",
-        "NEXT_PUBLIC_APP_URL"
+        "NEXT_PUBLIC_APP_URL",
+        "NODE_ENV"
       ]
     },
     "lint": {
