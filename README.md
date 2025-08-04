@@ -16,7 +16,8 @@
 
 - **Frontend**: Next.js 15, React, TypeScript
 - **Styling**: Tailwind CSS, shadcn/ui
-- **Database**: Vercel KV (프로덕션), 메모리 스토리지 (개발)
+- **Database**: Vercel KV with Upstash Redis (프로덕션), 메모리 스토리지 (개발)
+- **File Storage**: Vercel Blob (이미지 저장)
 - **Deployment**: Vercel
 - **Monorepo**: Turborepo
 
@@ -50,13 +51,14 @@ pnpm dev
 1. [Vercel](https://vercel.com)에 계정 생성
 2. GitHub 저장소 연결
 
-### 2. Vercel KV 데이터베이스 생성
+### 2. Vercel Storage 설정
 
 1. Vercel 대시보드에서 프로젝트 선택
 2. **Storage** 탭으로 이동
 3. **Browse Marketplace** 클릭
-4. **KV (Redis)** 선택 후 설치
-5. 데이터베이스 생성 완료 후 KV 환경 변수가 자동으로 추가됨
+4. **KV (Redis)** 선택 후 설치 (데이터 저장용)
+5. **Blob** 선택 후 설치 (이미지 저장용)
+6. 설치 완료 후 환경 변수가 자동으로 추가됨
 
 **참고**: [Vercel Storage 공식 문서](https://vercel.com/docs/storage)
 
@@ -69,7 +71,10 @@ ADMIN_PASSWORD=your_secure_admin_password
 NEXT_PUBLIC_APP_URL=https://your-app-domain.vercel.app
 ```
 
-**주의**: `KV_REST_API_URL`과 `KV_REST_API_TOKEN`은 Vercel KV Marketplace 설치 시 자동으로 추가됩니다.
+**주의**: 
+- KV 관련: `KV_REST_API_URL`, `KV_REST_API_TOKEN`, `KV_URL`
+- Blob 관련: `BLOB_READ_WRITE_TOKEN`
+이 환경 변수들은 Vercel Marketplace에서 각각 설치 시 자동으로 추가됩니다.
 
 ### 4. 배포 설정
 
@@ -84,6 +89,8 @@ npm i -g vercel
 # 배포
 vercel --prod
 ```
+
+**참고**: 프로젝트는 `@upstash/redis`와 `@vercel/blob` SDK를 사용하여 Vercel Storage와 통합됩니다.
 
 또는 GitHub에 푸시하면 자동으로 배포됩니다.
 
@@ -125,9 +132,9 @@ goodbye-penta/
 
 ### 이미지 처리
 
-- 클라이언트에서 base64로 인코딩
-- 메모리/KV에 저장
-- 프로덕션에서는 별도 이미지 스토리지 권장
+- 클라이언트에서 Vercel Blob으로 업로드
+- 공개 URL로 저장 및 제공
+- 최대 10MB, 5개 파일까지 지원
 
 ### 보안
 

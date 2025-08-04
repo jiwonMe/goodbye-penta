@@ -52,7 +52,10 @@ export default function ReportPage() {
   
   const handleRemoveFile = (index: number) => {
     // 미리보기 URL 정리
-    URL.revokeObjectURL(previewUrls[index]);
+    const previewUrl = previewUrls[index];
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     
     const newFiles = selectedFiles.filter((_, i) => i !== index);
     const newPreviews = previewUrls.filter((_, i) => i !== index);
