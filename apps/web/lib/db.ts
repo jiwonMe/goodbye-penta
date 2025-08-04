@@ -43,11 +43,21 @@ export async function createReport(input: CreateReportInput): Promise<Report> {
     };
 
     if (redis) {
-      console.log('💾 Saving to Vercel KV...');
-      // Vercel KV에 저장
-      await redis.hset(`report:${id}`, report);
-      await redis.lpush('reports:list', id);
-      console.log('✅ Saved to Vercel KV successfully');
+      try {
+        console.log('💾 Saving to Vercel KV...');
+        // Vercel KV에 저장
+        await redis.hset(`report:${id}`, report);
+        await redis.lpush('reports:list', id);
+        console.log('✅ Saved to Vercel KV successfully');
+      } catch (kvError) {
+        console.warn('⚠️ KV 저장 실패, 메모리 스토리지로 대체:', kvError);
+        // KV 저장 실패시 메모리 스토리지로 대체
+        reportsStore.set(id, report);
+        reportsList.unshift(id);
+        console.log('✅ Saved to memory storage as fallback');
+        // Redis 연결 비활성화
+        redis = null;
+      }
     } else {
       console.log('💾 Saving to memory storage...');
       // 메모리 스토리지에 저장
@@ -68,19 +78,34 @@ export async function getReport(id: string): Promise<Report | null> {
   let report: Report | null = null;
   
   if (redis) {
-    // Vercel KV에서 가져오기
-    report = await redis.hgetall(`report:${id}`);
-    if (report && Object.keys(report).length > 0) {
-      // 날짜 문자열을 Date 객체로 변환
-      report.createdAt = new Date(report.createdAt);
-      report.updatedAt = new Date(report.updatedAt);
-      report.occurredAt = new Date(report.occurredAt);
-      
-      // 조회수 증가
-      report.viewCount = (report.viewCount || 0) + 1;
-      await redis.hset(`report:${id}`, { viewCount: report.viewCount });
-    } else {
-      report = null;
+    try {
+      // Vercel KV에서 가져오기
+      report = await redis.hgetall(`report:${id}`);
+      if (report && Object.keys(report).length > 0) {
+        // 날짜 문자열을 Date 객체로 변환
+        report.createdAt = new Date(report.createdAt);
+        report.updatedAt = new Date(report.updatedAt);
+        report.occurredAt = new Date(report.occurredAt);
+        
+        // 조회수 증가
+        report.viewCount = (report.viewCount || 0) + 1;
+        try {
+          await redis.hset(`report:${id}`, { viewCount: report.viewCount });
+        } catch (updateError) {
+          console.warn('⚠️ KV 조회수 업데이트 실패:', updateError);
+        }
+      } else {
+        report = null;
+      }
+    } catch (kvError) {
+      console.warn(`⚠️ KV에서 리포트 ${id} 조회 실패, 메모리 스토리지로 대체:`, kvError);
+      report = reportsStore.get(id) || null;
+      if (report) {
+        report.viewCount++;
+        reportsStore.set(id, report);
+      }
+      // Redis 연결 비활성화
+      redis = null;
     }
   } else {
     // 메모리 스토리지에서 가져오기
@@ -105,10 +130,19 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
   let total = 0;
   
   if (redis) {
-    // Vercel KV에서 가져오기
-    const allIds = await redis.lrange('reports:list', 0, -1);
-    total = allIds.length;
-    pageReportIds = allIds.slice(start, end);
+    try {
+      // Vercel KV에서 가져오기
+      const allIds = await redis.lrange('reports:list', 0, -1);
+      total = allIds.length;
+      pageReportIds = allIds.slice(start, end);
+    } catch (kvError) {
+      console.warn('⚠️ KV 조회 실패, 메모리 스토리지로 대체:', kvError);
+      // KV 조회 실패시 메모리 스토리지로 대체
+      total = reportsList.length;
+      pageReportIds = reportsList.slice(start, end);
+      // Redis 연결 비활성화
+      redis = null;
+    }
   } else {
     // 메모리 스토리지에서 가져오기
     total = reportsList.length;
@@ -120,14 +154,19 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
     let report: Report | null = null;
     
     if (redis) {
-      report = await redis.hgetall(`report:${id}`);
-      if (report && Object.keys(report).length > 0) {
-        // 날짜 문자열을 Date 객체로 변환
-        report.createdAt = new Date(report.createdAt);
-        report.updatedAt = new Date(report.updatedAt);
-        report.occurredAt = new Date(report.occurredAt);
-      } else {
-        report = null;
+      try {
+        report = await redis.hgetall(`report:${id}`);
+        if (report && Object.keys(report).length > 0) {
+          // 날짜 문자열을 Date 객체로 변환
+          report.createdAt = new Date(report.createdAt);
+          report.updatedAt = new Date(report.updatedAt);
+          report.occurredAt = new Date(report.occurredAt);
+        } else {
+          report = null;
+        }
+      } catch (kvError) {
+        console.warn(`⚠️ KV에서 리포트 ${id} 조회 실패, 메모리 스토리지로 대체:`, kvError);
+        report = reportsStore.get(id) || null;
       }
     } else {
       report = reportsStore.get(id) || null;

@@ -13,11 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 파일 형식 검증
+    // 파일 형식 검증 - 더 관대하게 처리
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
+    const isValidImageType = allowedTypes.includes(file.type) || file.type.startsWith('image/');
+    
+    if (!isValidImageType) {
+      console.log('Invalid file type:', file.type, 'File name:', file.name);
       return NextResponse.json(
-        { success: false, error: 'Unsupported file type' },
+        { success: false, error: `Unsupported file type: ${file.type}. Supported types: ${allowedTypes.join(', ')}` },
         { status: 400 }
       );
     }
