@@ -101,34 +101,34 @@ export async function getReports(page: number = 1, pageSize: number = 10): Promi
   }
   
   // 각 제보 데이터 가져오기 (댓글 수 포함)
-  const reports = await Promise.all(
-    pageReportIds
-      .map(async (id) => {
-        let report: Report | null = null;
-        
-        if (redis) {
-          report = await redis.hgetall(`report:${id}`);
-          if (report && Object.keys(report).length > 0) {
-            // 날짜 문자열을 Date 객체로 변환
-            report.createdAt = new Date(report.createdAt);
-            report.updatedAt = new Date(report.updatedAt);
-            report.occurredAt = new Date(report.occurredAt);
-          } else {
-            report = null;
-          }
-        } else {
-          report = reportsStore.get(id) || null;
-        }
-        
-        if (!report) return undefined;
-        
-        const commentCount = await getCommentCount(id);
-        return { ...report, commentCount };
-      })
-  );
+  const reportPromises = pageReportIds.map(async (id) => {
+    let report: Report | null = null;
+    
+    if (redis) {
+      report = await redis.hgetall(`report:${id}`);
+      if (report && Object.keys(report).length > 0) {
+        // 날짜 문자열을 Date 객체로 변환
+        report.createdAt = new Date(report.createdAt);
+        report.updatedAt = new Date(report.updatedAt);
+        report.occurredAt = new Date(report.occurredAt);
+      } else {
+        report = null;
+      }
+    } else {
+      report = reportsStore.get(id) || null;
+    }
+    
+    if (!report) return null;
+    
+    const commentCount = await getCommentCount(id);
+    return { ...report, commentCount };
+  });
+  
+  const allReports = await Promise.all(reportPromises);
+  const validReports = allReports.filter((report): report is Report & { commentCount: number } => report !== null);
   
   return {
-    reports: reports.filter((report): report is Report => report !== undefined),
+    reports: validReports,
     total,
   };
 }
